@@ -166,20 +166,20 @@ int main() {
             al_get_keyboard_state(&keyboardState);
 
             if (al_key_down(&keyboardState, ALLEGRO_KEY_UP)) {
-                if (personaje.pos_y > 0 && !colisionBarrera(mapa, personaje.pos_x, personaje.pos_y - TAMANO_CELDA / 4, personaje.ancho_sprite, personaje.alto_sprite)) {
-                    personaje.pos_y -= TAMANO_CELDA / 4;
+                if (personaje.pos_y > 0 && !colisionBarrera(mapa, personaje.pos_x, personaje.pos_y - TAMANO_CELDA / 8, personaje.ancho_sprite, personaje.alto_sprite)) {
+                    personaje.pos_y -= TAMANO_CELDA / 8;
                 }
             } else if (al_key_down(&keyboardState, ALLEGRO_KEY_DOWN)) {
-                if (personaje.pos_y < (MAX_FILAS - 1) * TAMANO_CELDA - personaje.alto_sprite && !colisionBarrera(mapa, personaje.pos_x, personaje.pos_y + TAMANO_CELDA / 4, personaje.ancho_sprite, personaje.alto_sprite)) {
-                    personaje.pos_y += TAMANO_CELDA / 4;
+                if (personaje.pos_y < (MAX_FILAS - 1) * TAMANO_CELDA - personaje.alto_sprite && !colisionBarrera(mapa, personaje.pos_x, personaje.pos_y + TAMANO_CELDA / 8, personaje.ancho_sprite, personaje.alto_sprite)) {
+                    personaje.pos_y += TAMANO_CELDA / 8;
                 }
             } else if (al_key_down(&keyboardState, ALLEGRO_KEY_LEFT)) {
-                if (personaje.pos_x > 0 && !colisionBarrera(mapa, personaje.pos_x - TAMANO_CELDA / 4, personaje.pos_y, personaje.ancho_sprite, personaje.alto_sprite)) {
-                    personaje.pos_x -= TAMANO_CELDA / 4;
+                if (personaje.pos_x > 0 && !colisionBarrera(mapa, personaje.pos_x - TAMANO_CELDA / 8, personaje.pos_y, personaje.ancho_sprite, personaje.alto_sprite)) {
+                    personaje.pos_x -= TAMANO_CELDA / 8;
                 }
             } else if (al_key_down(&keyboardState, ALLEGRO_KEY_RIGHT)) {
-                if (personaje.pos_x < (MAX_COLUMNAS - 1) * TAMANO_CELDA - personaje.ancho_sprite && !colisionBarrera(mapa, personaje.pos_x + TAMANO_CELDA / 4, personaje.pos_y, personaje.ancho_sprite, personaje.alto_sprite)) {
-                    personaje.pos_x += TAMANO_CELDA / 4;
+                if (personaje.pos_x < (MAX_COLUMNAS - 1) * TAMANO_CELDA - personaje.ancho_sprite && !colisionBarrera(mapa, personaje.pos_x + TAMANO_CELDA / 8, personaje.pos_y, personaje.ancho_sprite, personaje.alto_sprite)) {
+                    personaje.pos_x += TAMANO_CELDA / 8;
                 }
             }
 
