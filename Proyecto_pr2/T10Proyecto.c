@@ -3,6 +3,7 @@
 #include <allegro5/allegro.h>
 #include <allegro5/allegro_primitives.h>
 #include <allegro5/allegro_image.h>
+#include <allegro5/allegro_font.h>
 
 #define MAX_FILAS 30
 #define MAX_COLUMNAS 42
@@ -11,8 +12,6 @@
 #define ALTO_VENTANA 900
 #define ajuste_ene -20
 
-//Agregué las estructuras del personaje y enemigo también pinchos que devuelven al inicio al jugador, me falta realizar la colisión del enemigo y ajustar bien el sprite de enemigo con las barreras ya que traspasa
-//Ahora declaré las funciones arriba ya que tuve unos problemas con la compilación 
 
 typedef struct {
     int pos_x;
@@ -33,11 +32,12 @@ void dibujarMapa(char mapa[MAX_FILAS][MAX_COLUMNAS], ALLEGRO_BITMAP* sprite_barr
 bool colisionBarrera(char mapa[MAX_FILAS][MAX_COLUMNAS], int pos_x, int pos_y, int ancho_sprite, int alto_sprite);
 bool colisionTrampa(char mapa[MAX_FILAS][MAX_COLUMNAS], Personaje personaje);
 void moverEnemigo(char mapa[MAX_FILAS][MAX_COLUMNAS], Enemigo* enemigo, ALLEGRO_BITMAP* sprite_enemigo);
-
+void MenuPrinc(ALLEGRO_DISPLAY* display, ALLEGRO_EVENT_QUEUE* eventQueue2);
 
 int main() {
     ALLEGRO_DISPLAY* display = NULL;
     ALLEGRO_EVENT_QUEUE* eventQueue = NULL;
+    ALLEGRO_EVENT_QUEUE* eventQueue2 = NULL;
     ALLEGRO_TIMER* timer = NULL;
     ALLEGRO_BITMAP* sprite = NULL;
     ALLEGRO_BITMAP* sprite_barrera = NULL;
@@ -47,6 +47,7 @@ int main() {
     ALLEGRO_BITMAP* sprite_enemigo = NULL;
     ALLEGRO_BITMAP* frames_enemigo[6];
 
+    int i, fila;
     int frame_actual = 0;
 
     Personaje personaje;
@@ -74,8 +75,14 @@ int main() {
     al_install_keyboard();
     al_init_image_addon();
 
+    eventQueue2 = al_create_event_queue();
     eventQueue = al_create_event_queue();
     timer = al_create_timer(1.0 / 60);
+
+    al_register_event_source(eventQueue2, al_get_display_event_source(display));
+    al_register_event_source(eventQueue2, al_get_keyboard_event_source());
+
+    MenuPrinc(display, eventQueue2);
 
     al_register_event_source(eventQueue, al_get_display_event_source(display));
     al_register_event_source(eventQueue, al_get_keyboard_event_source());
@@ -92,7 +99,7 @@ int main() {
         return -1;
     }
 
-    for (int fila = 0; fila < MAX_FILAS; fila++) {
+    for (fila = 0; fila < MAX_FILAS; fila++) {
         if (fgets(mapa[fila], MAX_COLUMNAS + 3, archivo) == NULL) {
             fclose(archivo);
             return -1;
@@ -144,7 +151,7 @@ int main() {
     enemigo.alto_enesprite = 30;
     enemigo.desplazamiento = 10;
 
-    for (int i = 0; i < 6; i++) {
+    for (i = 0; i < 6; i++) {
         frames_enemigo[i] = al_create_sub_bitmap(sprite_enemigo, i * (enemigo_ancho_imagen / 6), 0, enemigo_ancho_imagen / 6, enemigo_alto_imagen);
     }
 
@@ -195,7 +202,7 @@ int main() {
         }
     }
 
-    for (int i = 0; i < 6; i++) {
+    for (i = 0; i < 6; i++) {
         al_destroy_bitmap(frames_enemigo[i]);
     }
 
@@ -210,6 +217,63 @@ int main() {
     al_destroy_timer(timer);
 
     return 0;
+}
+
+void MenuPrinc(ALLEGRO_DISPLAY* display, ALLEGRO_EVENT_QUEUE* eventqueue2){
+    ALLEGRO_FONT* fuente = al_create_builtin_font();
+    ALLEGRO_COLOR textColor = al_map_rgb(255, 255, 255);
+    int opcion = 0;
+    int totalOpciones = 3;
+    bool salirMenu = false;
+
+    while(!salirMenu){
+        ALLEGRO_EVENT event;
+        al_wait_for_event(eventqueue2, &event);
+        if(event.type == ALLEGRO_EVENT_DISPLAY_CLOSE){
+            salirMenu = true;
+            break;
+        }
+        if (event.type == ALLEGRO_EVENT_KEY_DOWN){
+            if(event.keyboard.keycode == ALLEGRO_KEY_UP){
+                opcion = (opcion + totalOpciones - 1) % totalOpciones;
+            } else if (event.keyboard.keycode == ALLEGRO_KEY_DOWN){
+                opcion = (opcion + 1) % totalOpciones;
+            }
+        }
+
+        al_clear_to_color(al_map_rgb(0, 0, 0));
+
+        al_draw_text(fuente, textColor, ANCHO_VENTANA / 2, ALTO_VENTANA / 3 - 40, ALLEGRO_ALIGN_CENTER, "Menu Principal");
+        if (opcion == 0)
+        {
+            al_draw_text(fuente, textColor, ANCHO_VENTANA / 2, ALTO_VENTANA / 2 + 1 * 40, ALLEGRO_ALIGN_CENTER, "-> Jugar");
+            if (event.keyboard.keycode == ALLEGRO_KEY_ENTER){
+                salirMenu = true;
+                break;
+            }
+        } else{
+            al_draw_text(fuente, textColor, ANCHO_VENTANA / 2, ALTO_VENTANA / 2 + 1 * 40, ALLEGRO_ALIGN_CENTER, "Jugar");
+        }
+        if (opcion == 1){
+            al_draw_text(fuente, textColor, ANCHO_VENTANA / 2, ALTO_VENTANA / 2 + 2 * 40, ALLEGRO_ALIGN_CENTER, "-> Seleccion de mapa");
+        } else{
+            al_draw_text(fuente, textColor, ANCHO_VENTANA / 2, ALTO_VENTANA / 2 + 2 * 40, ALLEGRO_ALIGN_CENTER, "Seleccion de mapa");
+        }
+        if (opcion == 2){
+            al_draw_text(fuente, textColor, ANCHO_VENTANA / 2, ALTO_VENTANA / 2 + 3 * 40, ALLEGRO_ALIGN_CENTER, "-> Salir");
+            if (event.keyboard.keycode == ALLEGRO_KEY_ENTER){
+                salirMenu = true;
+                al_destroy_display(display);
+                exit(0);
+            }       
+        } else{
+            al_draw_text(fuente, textColor, ANCHO_VENTANA / 2, ALTO_VENTANA / 2 + 3 * 40, ALLEGRO_ALIGN_CENTER, "Salir");
+        }
+
+        al_flip_display();
+    }
+
+    al_destroy_font(fuente);
 }
 
 void dibujarMapa(char mapa[MAX_FILAS][MAX_COLUMNAS], ALLEGRO_BITMAP* sprite_barrera, ALLEGRO_BITMAP* sprite_tesoro, ALLEGRO_BITMAP* sprite_trampa, ALLEGRO_BITMAP* sprite_trampa2) {
