@@ -28,12 +28,22 @@ typedef struct {
     int desplazamiento;
 } Enemigo;
 
+typedef struct {
+    int eneV_posx;
+    int eneV_posy;
+    int anchoV_enesprite;
+    int altoV_enesprite;
+    int desplazamientoV;
+} EnemigoV;
+
 void dibujarMapa(char mapa[MAX_FILAS][MAX_COLUMNAS], ALLEGRO_BITMAP* sprite_barrera, ALLEGRO_BITMAP* sprite_tesoro, ALLEGRO_BITMAP* sprite_trampa, ALLEGRO_BITMAP* sprite_trampa2);
 bool colisionBarrera(char mapa[MAX_FILAS][MAX_COLUMNAS], int pos_x, int pos_y, int ancho_sprite, int alto_sprite);
 bool colisionTrampa(char mapa[MAX_FILAS][MAX_COLUMNAS], Personaje personaje);
 void moverEnemigo(char mapa[MAX_FILAS][MAX_COLUMNAS], Enemigo* enemigo, ALLEGRO_BITMAP* sprite_enemigo);
+void moverEnemigoV(char mapa[MAX_FILAS][MAX_COLUMNAS], EnemigoV* enemigoV, ALLEGRO_BITMAP* sprite_enemigo);
 void MenuPrinc(ALLEGRO_DISPLAY* display, ALLEGRO_EVENT_QUEUE* eventQueue2);
-
+void actualizarPuntaje(char mapa[MAX_FILAS][MAX_COLUMNAS], Personaje personaje, int* puntaje);
+void dibujarPuntaje(int puntaje);
 int main() {
     ALLEGRO_DISPLAY* display = NULL;
     ALLEGRO_EVENT_QUEUE* eventQueue = NULL;
@@ -47,7 +57,9 @@ int main() {
     ALLEGRO_BITMAP* sprite_enemigo = NULL;
     ALLEGRO_BITMAP* frames_enemigo[6];
 
-    int i, fila;
+    al_init_font_addon();
+
+    int i, fila, puntaje = 0;
     int frame_actual = 0;
 
     Personaje personaje;
@@ -57,9 +69,15 @@ int main() {
     personaje.alto_sprite = 21;
 
     Enemigo enemigo;
-    enemigo.ene_posx = 1 * TAMANO_CELDA;
-    enemigo.ene_posy = 1 * TAMANO_CELDA;
+    enemigo.ene_posx = 840;
+    enemigo.ene_posy = 210;
 
+    EnemigoV enemigoV;
+    enemigoV.eneV_posx = 480;
+    enemigoV.eneV_posy = 650;
+    enemigoV.anchoV_enesprite = 30;
+    enemigoV.altoV_enesprite = 30;
+    enemigoV.desplazamientoV = -1;
     if (!al_init()) {
         fprintf(stderr, "Error al inicializar Allegro.\n");
         return -1;
@@ -149,7 +167,7 @@ int main() {
 
     enemigo.ancho_enesprite = 30;
     enemigo.alto_enesprite = 30;
-    enemigo.desplazamiento = 10;
+    enemigo.desplazamiento = -1;
 
     for (i = 0; i < 6; i++) {
         frames_enemigo[i] = al_create_sub_bitmap(sprite_enemigo, i * (enemigo_ancho_imagen / 6), 0, enemigo_ancho_imagen / 6, enemigo_alto_imagen);
@@ -189,6 +207,7 @@ int main() {
             }
 
             moverEnemigo(mapa, &enemigo, sprite_enemigo);
+            moverEnemigoV(mapa, &enemigoV, sprite_enemigo);
             frame_actual = (frame_actual + 1) % 6;
 
             al_clear_to_color(al_map_rgb(255, 255, 255));
@@ -196,6 +215,9 @@ int main() {
 
             al_draw_bitmap(sprite, personaje.pos_x, personaje.pos_y, 0);
             al_draw_bitmap(frames_enemigo[frame_actual], enemigo.ene_posx, enemigo.ene_posy, 0);
+            al_draw_bitmap(frames_enemigo[frame_actual], enemigoV.eneV_posx, enemigoV.eneV_posy, 0);
+            dibujarPuntaje(puntaje);
+            actualizarPuntaje(mapa, personaje, &puntaje);            
             al_flip_display();
         } else if (event.type == ALLEGRO_EVENT_DISPLAY_CLOSE) {
             salir = true;
@@ -333,34 +355,80 @@ bool colisionTrampa(char mapa[MAX_FILAS][MAX_COLUMNAS], Personaje personaje) {
     return false;
 }
 
-void moverEnemigo(char mapa[MAX_FILAS][MAX_COLUMNAS], Enemigo* enemigo, ALLEGRO_BITMAP* sprite_enemigo) {
-    int i, j, pos, cont = 0;
-    for (j = 0; j < MAX_COLUMNAS; j++) {
-        for (i = 0; i < MAX_FILAS; i++) {
-            if (mapa[i][j] == 'E') {
-                cont++;
-                pos = i * TAMANO_CELDA;
+void actualizarPuntaje(char mapa[MAX_FILAS][MAX_COLUMNAS], Personaje personaje, int* puntaje) {
+    int fila = personaje.pos_y / TAMANO_CELDA;
+    int columna = personaje.pos_x / TAMANO_CELDA;
 
-                if (mapa[(pos - enemigo->desplazamiento) / TAMANO_CELDA][j] != '#') {
-                    enemigo->ene_posx = (j * TAMANO_CELDA) - enemigo->desplazamiento;
-                    enemigo->ene_posy = (i * TAMANO_CELDA) + ajuste_ene;
-                    al_draw_bitmap(sprite_enemigo, enemigo->ene_posx, enemigo->ene_posy, 0);
-                    enemigo->desplazamiento++;
-                } else {
-                    enemigo->desplazamiento = 0;
-                }
 
-                if (mapa[(pos - enemigo->desplazamiento) / TAMANO_CELDA][j] != '#') {
-                    enemigo->ene_posx = (j * TAMANO_CELDA) - enemigo->desplazamiento;
-                    enemigo->ene_posy = (i * TAMANO_CELDA) + ajuste_ene;
-                    al_draw_bitmap(sprite_enemigo, enemigo->ene_posx, enemigo->ene_posy, 0);
-                    enemigo->desplazamiento++;
-                } else {
-                    enemigo->desplazamiento = 0;
-                }
-            }
-        }
+    if (mapa[fila][columna] == '$') {
+        *puntaje += 10;
+        mapa[fila][columna] = ' ';
     }
 }
 
+void dibujarPuntaje(int puntaje) {
+    int tamano_fuente = 30;
+    ALLEGRO_FONT* font = al_create_builtin_font();
+    ALLEGRO_COLOR color = al_map_rgb(255, 255, 255);
 
+    int pos_x_texto = ANCHO_VENTANA - 10;
+    int pos_y_texto = 10;
+
+    al_draw_textf(font, color, pos_x_texto, pos_y_texto, ALLEGRO_ALIGN_RIGHT, "Puntaje: %d", puntaje);
+    al_destroy_font(font);
+}
+
+void moverEnemigo(char mapa[MAX_FILAS][MAX_COLUMNAS], Enemigo* enemigo, ALLEGRO_BITMAP* sprite_enemigo) {
+    int pos_x = enemigo->ene_posx / TAMANO_CELDA;
+    int pos_y = enemigo->ene_posy / TAMANO_CELDA;
+    int nueva_pos_x = (enemigo->ene_posx + enemigo->desplazamiento) / TAMANO_CELDA;
+
+    if (mapa[pos_y][nueva_pos_x] != '#') {
+        enemigo->ene_posx += enemigo->desplazamiento;
+    } else {
+        enemigo->desplazamiento = -enemigo->desplazamiento;
+    }
+
+    al_draw_bitmap(sprite_enemigo, enemigo->ene_posx, enemigo->ene_posy, 0);
+}
+
+void moverEnemigoV(char mapa[MAX_FILAS][MAX_COLUMNAS], EnemigoV* enemigoV, ALLEGRO_BITMAP* sprite_enemigo) {
+    int columna = enemigoV->eneV_posx / TAMANO_CELDA;
+    int inicio_y = enemigoV->eneV_posy / TAMANO_CELDA;
+    int fin_y = (enemigoV->eneV_posy + enemigoV->altoV_enesprite - 1) / TAMANO_CELDA;
+
+    
+    if (enemigoV->desplazamientoV > 0) {
+        
+        if (fin_y + 1 < MAX_FILAS && mapa[fin_y + 1][columna] != '#') {
+            enemigoV->eneV_posy += enemigoV->desplazamientoV;
+        } else {
+            
+            enemigoV->desplazamientoV = -enemigoV->desplazamientoV;
+            enemigoV->eneV_posy += enemigoV->desplazamientoV;
+        }
+    } else {
+        
+        if (inicio_y - 1 >= 0 && mapa[inicio_y - 1][columna] != '#') {
+            enemigoV->eneV_posy += enemigoV->desplazamientoV;
+        } else {
+            
+            enemigoV->desplazamientoV = -enemigoV->desplazamientoV;
+            enemigoV->eneV_posy += enemigoV->desplazamientoV;
+        }
+    }
+
+    
+    if (enemigoV->eneV_posy < 0) {
+        enemigoV->desplazamientoV = -enemigoV->desplazamientoV;
+        enemigoV->eneV_posy = 0;
+    }
+
+    
+    if (enemigoV->eneV_posy + enemigoV->altoV_enesprite > ALTO_VENTANA) {
+        enemigoV->desplazamientoV = -enemigoV->desplazamientoV;
+        enemigoV->eneV_posy = ALTO_VENTANA - enemigoV->altoV_enesprite;
+    }
+
+    al_draw_bitmap(sprite_enemigo, enemigoV->eneV_posx, enemigoV->eneV_posy, 0);
+}
