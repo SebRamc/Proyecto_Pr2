@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
+#include <math.h>
 #include <allegro5/allegro.h>
 #include <allegro5/allegro_primitives.h>
 #include <allegro5/allegro_image.h>
@@ -36,14 +38,27 @@ typedef struct {
     int desplazamientoV;
 } EnemigoV;
 
+typedef struct {
+    int pos_x;
+    int pos_y;
+    int ancho_enesprite;
+    int alto_enesprite;
+    int desplazamiento;
+    bool persigue;
+} EnemigoP;
+
 void dibujarMapa(char mapa[MAX_FILAS][MAX_COLUMNAS], ALLEGRO_BITMAP* sprite_barrera, ALLEGRO_BITMAP* sprite_tesoro, ALLEGRO_BITMAP* sprite_trampa, ALLEGRO_BITMAP* sprite_trampa2);
 bool colisionBarrera(char mapa[MAX_FILAS][MAX_COLUMNAS], int pos_x, int pos_y, int ancho_sprite, int alto_sprite);
 bool colisionTrampa(char mapa[MAX_FILAS][MAX_COLUMNAS], Personaje personaje);
 void moverEnemigo(char mapa[MAX_FILAS][MAX_COLUMNAS], Enemigo* enemigo, ALLEGRO_BITMAP* sprite_enemigo);
 void moverEnemigoV(char mapa[MAX_FILAS][MAX_COLUMNAS], EnemigoV* enemigoV, ALLEGRO_BITMAP* sprite_enemigo);
+void perseguirPersonaje(Personaje personaje, EnemigoP* perseguidor);
+void moverEnemigoP(char mapa[MAX_FILAS][MAX_COLUMNAS], EnemigoP* perseguidor, Personaje personaje, ALLEGRO_BITMAP* sprite_enemigo);
+bool colisionConEnemigo(EnemigoP perseguidor, Personaje personaje);
 void MenuPrinc(ALLEGRO_DISPLAY* display, ALLEGRO_EVENT_QUEUE* eventQueue2);
 void actualizarPuntaje(char mapa[MAX_FILAS][MAX_COLUMNAS], Personaje personaje, int* puntaje);
 void dibujarPuntaje(int puntaje);
+
 int main() {
     ALLEGRO_DISPLAY* display = NULL;
     ALLEGRO_EVENT_QUEUE* eventQueue = NULL;
@@ -55,7 +70,7 @@ int main() {
     ALLEGRO_BITMAP* sprite_trampa = NULL;
     ALLEGRO_BITMAP* sprite_trampa2 = NULL;
     ALLEGRO_BITMAP* sprite_enemigo = NULL;
-    ALLEGRO_BITMAP* frames_enemigo[6];
+    ALLEGRO_BITMAP* frames_enemigo[4];
 
     al_init_font_addon();
 
@@ -73,11 +88,20 @@ int main() {
     enemigo.ene_posy = 210;
 
     EnemigoV enemigoV;
-    enemigoV.eneV_posx = 480;
+    enemigoV.eneV_posx = 620;
     enemigoV.eneV_posy = 650;
-    enemigoV.anchoV_enesprite = 30;
-    enemigoV.altoV_enesprite = 30;
+    enemigoV.anchoV_enesprite = 21;
+    enemigoV.altoV_enesprite = 24;
     enemigoV.desplazamientoV = -1;
+
+    EnemigoP perseguidor;
+    perseguidor.pos_x = 615;
+    perseguidor.pos_y = 500;
+    perseguidor.ancho_enesprite = 30;
+    perseguidor.alto_enesprite = 30;
+    perseguidor.desplazamiento = 2;
+    perseguidor.persigue = false;
+
     if (!al_init()) {
         fprintf(stderr, "Error al inicializar Allegro.\n");
         return -1;
@@ -111,7 +135,7 @@ int main() {
 
     char mapa[MAX_FILAS][MAX_COLUMNAS];
 
-    FILE* archivo = fopen("mapa.txt", "r");
+    FILE* archivo = fopen("mapa/mapa.txt", "r");
     if (!archivo) {
         fprintf(stderr, "Error al abrir el archivo de mapa.\n");
         return -1;
@@ -126,37 +150,37 @@ int main() {
 
     fclose(archivo);
 
-    sprite = al_load_bitmap("Man.png");
+    sprite = al_load_bitmap("sprites/Man.png");
     if (!sprite) {
         fprintf(stderr, "Error al cargar el sprite.\n");
         return -1;
     }
 
-    sprite_barrera = al_load_bitmap("barrera.png");
+    sprite_barrera = al_load_bitmap("sprites/barrera.png");
     if (!sprite_barrera) {
         fprintf(stderr, "Error al cargar el sprite de las barreras.\n");
         return -1;
     }
 
-    sprite_tesoro = al_load_bitmap("Tesoro1.png");
+    sprite_tesoro = al_load_bitmap("sprites/Tesoro1.png");
     if (!sprite_tesoro) {
         fprintf(stderr, "Error al cargar el sprite del tesoro.\n");
         return -1;
     }
 
-    sprite_trampa = al_load_bitmap("trampa1.png");
+    sprite_trampa = al_load_bitmap("sprites/trampa1.png");
     if (!sprite_trampa) {
         fprintf(stderr, "Error al cargar el sprite de trampa.\n");
         return -1;
     }
 
-    sprite_trampa2 = al_load_bitmap("trampa2.png");
+    sprite_trampa2 = al_load_bitmap("sprites/trampa2.png");
     if (!sprite_trampa2) {
         fprintf(stderr, "Error al cargar el sprite de la trampa 2.\n");
         return -1;
     }
 
-    sprite_enemigo = al_load_bitmap("enemigo.png");
+    sprite_enemigo = al_load_bitmap("sprites/enemigo.png");
     if (!sprite_enemigo) {
         fprintf(stderr, "Error al cargar el sprite del enemigo.\n");
         return -1;
@@ -169,8 +193,8 @@ int main() {
     enemigo.alto_enesprite = 30;
     enemigo.desplazamiento = -1;
 
-    for (i = 0; i < 6; i++) {
-        frames_enemigo[i] = al_create_sub_bitmap(sprite_enemigo, i * (enemigo_ancho_imagen / 6), 0, enemigo_ancho_imagen / 6, enemigo_alto_imagen);
+    for (i = 0; i < 4; i++) {
+        frames_enemigo[i] = al_create_sub_bitmap(sprite_enemigo, i * (enemigo_ancho_imagen / 4), 0, enemigo_ancho_imagen / 4, enemigo_alto_imagen);
     }
 
     al_start_timer(timer);
@@ -205,17 +229,26 @@ int main() {
                 personaje.pos_x = 80;
                 personaje.pos_y = 40;
             }
+            frame_actual = (frame_actual + 1) % 4;
 
             moverEnemigo(mapa, &enemigo, sprite_enemigo);
             moverEnemigoV(mapa, &enemigoV, sprite_enemigo);
-            frame_actual = (frame_actual + 1) % 6;
+
+            perseguirPersonaje(personaje, &perseguidor);
+            moverEnemigoP(mapa, &perseguidor, personaje, sprite_enemigo);
+            
+            if (colisionConEnemigo(perseguidor, personaje)) {
+            personaje.pos_x = 80;
+            personaje.pos_y = 40;
+            }            
 
             al_clear_to_color(al_map_rgb(255, 255, 255));
             dibujarMapa(mapa, sprite_barrera, sprite_tesoro, sprite_trampa, sprite_trampa2);
 
             al_draw_bitmap(sprite, personaje.pos_x, personaje.pos_y, 0);
-            al_draw_bitmap(frames_enemigo[frame_actual], enemigo.ene_posx, enemigo.ene_posy, 0);
-            al_draw_bitmap(frames_enemigo[frame_actual], enemigoV.eneV_posx, enemigoV.eneV_posy, 0);
+            al_draw_bitmap(frames_enemigo[frame_actual], enemigo.ene_posx - enemigo.ancho_enesprite / 2, enemigo.ene_posy - enemigo.alto_enesprite / 2, 0);
+            al_draw_bitmap(frames_enemigo[frame_actual], enemigoV.eneV_posx - enemigoV.anchoV_enesprite / 2, enemigoV.eneV_posy - enemigoV.altoV_enesprite / 2, 0);
+            al_draw_bitmap(frames_enemigo[frame_actual], perseguidor.pos_x - perseguidor.ancho_enesprite / 2, perseguidor.pos_y - perseguidor.alto_enesprite / 2, 0);
             dibujarPuntaje(puntaje);
             actualizarPuntaje(mapa, personaje, &puntaje);            
             al_flip_display();
@@ -224,7 +257,7 @@ int main() {
         }
     }
 
-    for (i = 0; i < 6; i++) {
+    for (i = 0; i < 4; i++) {
         al_destroy_bitmap(frames_enemigo[i]);
     }
 
@@ -394,41 +427,101 @@ void moverEnemigo(char mapa[MAX_FILAS][MAX_COLUMNAS], Enemigo* enemigo, ALLEGRO_
 
 void moverEnemigoV(char mapa[MAX_FILAS][MAX_COLUMNAS], EnemigoV* enemigoV, ALLEGRO_BITMAP* sprite_enemigo) {
     int columna = enemigoV->eneV_posx / TAMANO_CELDA;
-    int inicio_y = enemigoV->eneV_posy / TAMANO_CELDA;
-    int fin_y = (enemigoV->eneV_posy + enemigoV->altoV_enesprite - 1) / TAMANO_CELDA;
+    int fila = enemigoV->eneV_posy / TAMANO_CELDA;
+    int nueva_pos_y = (enemigoV->eneV_posy + enemigoV->desplazamientoV) / TAMANO_CELDA;
 
-    
-    if (enemigoV->desplazamientoV > 0) {
-        
-        if (fin_y + 1 < MAX_FILAS && mapa[fin_y + 1][columna] != '#') {
-            enemigoV->eneV_posy += enemigoV->desplazamientoV;
-        } else {
-            
-            enemigoV->desplazamientoV = -enemigoV->desplazamientoV;
-            enemigoV->eneV_posy += enemigoV->desplazamientoV;
-        }
+    if (mapa[nueva_pos_y][columna] != '#') {
+        enemigoV->eneV_posy += enemigoV->desplazamientoV;
     } else {
-        
-        if (inicio_y - 1 >= 0 && mapa[inicio_y - 1][columna] != '#') {
-            enemigoV->eneV_posy += enemigoV->desplazamientoV;
-        } else {
+        enemigoV->desplazamientoV = -enemigoV->desplazamientoV;
+    }
+
+    al_draw_bitmap(sprite_enemigo, enemigoV->eneV_posx - enemigoV->anchoV_enesprite / 2, enemigoV->eneV_posy - enemigoV->altoV_enesprite / 2, 0);
+}
+
+void perseguirPersonaje(Personaje personaje, EnemigoP* perseguidor) {
+    int distancia_x = personaje.pos_x - perseguidor->pos_x;
+    int distancia_y = personaje.pos_y - perseguidor->pos_y;
+
+    int distancia_cuadrada = distancia_x * distancia_x + distancia_y * distancia_y;
+
+    int distancia_radio = 50000; 
+    perseguidor->persigue = (distancia_cuadrada < distancia_radio);
+}
+
+void moverEnemigoP(char mapa[MAX_FILAS][MAX_COLUMNAS], EnemigoP* perseguidor, Personaje personaje, ALLEGRO_BITMAP* sprite_enemigo) {
+    int columna = perseguidor->pos_x / TAMANO_CELDA;
+    int fila = perseguidor->pos_y / TAMANO_CELDA;
+    
+    int tiempo_maximo_persecucion = 180; 
+    static int contador_persecucion = 0;
+
+    if (!perseguidor->persigue) {
+        contador_persecucion = 0;
+    }
+
+    int distancia_x = personaje.pos_x - perseguidor->pos_x;
+    int distancia_y = personaje.pos_y - perseguidor->pos_y;
+
+    if (distancia_x * distancia_x + distancia_y * distancia_y < 50000) {
+        perseguidor->persigue = true;
+    } else {
+        perseguidor->persigue = false;
+    }
+
+    if (perseguidor->persigue) {
+        float velocidad = 1;
+
+        int desplazamiento_x = 0;
+        int desplazamiento_y = 0;
+
+        if (distancia_x != 0) {
+            if (distancia_x > 0) {
+                desplazamiento_x = velocidad;  
+            } else {
+                desplazamiento_x = -velocidad;
+            }
+        }
+
+        if (distancia_y != 0) {
+            if (distancia_y > 0) {
+                desplazamiento_y = velocidad;  
+            } else {
+                desplazamiento_y = -velocidad;
+            }
+        }
+
+        int nueva_pos_x = perseguidor->pos_x + desplazamiento_x;
+        int nueva_pos_y = perseguidor->pos_y + desplazamiento_y;
+
+        if (!colisionBarrera(mapa, nueva_pos_x, nueva_pos_y, perseguidor->ancho_enesprite, perseguidor->alto_enesprite)) {
+            perseguidor->pos_x = nueva_pos_x;
+            perseguidor->pos_y = nueva_pos_y;
             
-            enemigoV->desplazamientoV = -enemigoV->desplazamientoV;
-            enemigoV->eneV_posy += enemigoV->desplazamientoV;
+            contador_persecucion++;
+            
+            if (contador_persecucion >= tiempo_maximo_persecucion) {
+                perseguidor->persigue = false;
+                contador_persecucion = 0;
+            }
         }
     }
 
-    
-    if (enemigoV->eneV_posy < 0) {
-        enemigoV->desplazamientoV = -enemigoV->desplazamientoV;
-        enemigoV->eneV_posy = 0;
-    }
+    al_draw_bitmap(sprite_enemigo, perseguidor->pos_x - perseguidor->ancho_enesprite / 2, perseguidor->pos_y - perseguidor->alto_enesprite / 2, 0);
+}
 
-    
-    if (enemigoV->eneV_posy + enemigoV->altoV_enesprite > ALTO_VENTANA) {
-        enemigoV->desplazamientoV = -enemigoV->desplazamientoV;
-        enemigoV->eneV_posy = ALTO_VENTANA - enemigoV->altoV_enesprite;
-    }
+bool colisionConEnemigo(EnemigoP perseguidor, Personaje personaje) {
+    int distancia_x = personaje.pos_x - perseguidor.pos_x;
+    int distancia_y = personaje.pos_y - perseguidor.pos_y;
 
-    al_draw_bitmap(sprite_enemigo, enemigoV->eneV_posx, enemigoV->eneV_posy, 0);
+    int distancia_cuadrada = distancia_x * distancia_x + distancia_y * distancia_y;
+
+
+    int distancia_colision = 21 * 24; 
+
+    if (distancia_cuadrada < distancia_colision) {
+        return true; 
+    } else {
+        return false;
+    }
 }
