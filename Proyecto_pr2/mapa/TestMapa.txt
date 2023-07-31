@@ -1,0 +1,38 @@
+##########################################
+#                                        #
+#                                        #
+#                                        #
+#                                        #
+#                                        #
+#                                        #
+#                                        #
+#                                        #
+#                                        #
+#                                        #
+#                                        #
+#                                        #
+#                                        #
+#                                        #
+#                                        #
+#                                        #
+#                                        #
+#                                        #
+#                                        #
+#                                        #
+#                                        #
+#                                        #
+#                                        #
+#                                        #
+#                                        #
+#                                        #
+#                                        #
+#                                        #
+##########################################
+
+C = Personaje principal
+a = trampas laterales (izq)
+d = pinchos
+E = enemigo horizontal
+V = enemigo vertical
+P = enemigo que persigue
+$ = tesoro
