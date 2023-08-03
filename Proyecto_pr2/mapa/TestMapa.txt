@@ -30,7 +30,9 @@
 ##########################################
 
 C = Personaje principal
-a = trampas laterales (izq)
+a = trampas laterales (izquierda)
+b = trampa superior
+l = trampa lateral (derecha)
 d = pinchos
 E = enemigo horizontal
 V = enemigo vertical

@@ -47,10 +47,17 @@ typedef struct {
     bool persigue;
 } EnemigoP;
 
+typedef struct {
+    int tes_posx;
+    int tes_posy;
+    int anchoT;
+    int altoT;
+} Tesoros;
+
 void MenuPrinc(ALLEGRO_DISPLAY* displayM, ALLEGRO_EVENT_QUEUE* eventqueue2, int* mapaSeleccionado, char mapa[MAX_FILAS][MAX_COLUMNAS]);
 void Juego(int mapaSeleccionado, ALLEGRO_DISPLAY* displayM);
 void seleccionarMapa(int mapaSeleccionado, char mapa[MAX_FILAS][MAX_COLUMNAS]);
-void dibujarMapa(char mapa[MAX_FILAS][MAX_COLUMNAS], ALLEGRO_BITMAP* sprite_barrera, ALLEGRO_BITMAP* sprite_tesoro, ALLEGRO_BITMAP* sprite_trampa, ALLEGRO_BITMAP* sprite_trampa2);
+void dibujarMapa(char mapa[MAX_FILAS][MAX_COLUMNAS], ALLEGRO_BITMAP* sprite_barrera, ALLEGRO_BITMAP* sprite_trampa, ALLEGRO_BITMAP* sprite_trampa2, ALLEGRO_BITMAP* sprite_trampa3, ALLEGRO_BITMAP* sprite_trampa4);
 bool colisionBarrera(char mapa[MAX_FILAS][MAX_COLUMNAS], int pos_x, int pos_y, int ancho_sprite, int alto_sprite);
 bool colisionTrampa(char mapa[MAX_FILAS][MAX_COLUMNAS], Personaje personaje);
 void moverEnemigo(char mapa[MAX_FILAS][MAX_COLUMNAS], Enemigo enemigos[], int contE);
@@ -66,15 +73,17 @@ int inicializarPersonaje(char mapa[MAX_FILAS][MAX_COLUMNAS]);
 int inicializarEnemigosE(char mapa[MAX_FILAS][MAX_COLUMNAS]);
 int inicializarEnemigosV(char mapa[MAX_FILAS][MAX_COLUMNAS]);
 int inicializarEnemigosP(char mapa[MAX_FILAS][MAX_COLUMNAS]);
+int inicializarTesoros(char mapa[MAX_FILAS][MAX_COLUMNAS]);
 void leerEnemigoE(int contE);
 void leerEnemigoV(int contV);
 void leerEnemigoP(int contP);
+void leerTesoros(int contT);
 
 Enemigo enemigos[10];
 EnemigoV enemigosV[10];
 EnemigoP enemigosP[10];
 Personaje personaje;
-
+Tesoros tesoro[10];
 
 int main() {
     al_init();
@@ -117,6 +126,22 @@ int inicializarPersonaje(char mapa[MAX_FILAS][MAX_COLUMNAS]){
         }
     }
     return contC;    
+}
+
+int inicializarTesoros(char mapa[MAX_FILAS][MAX_COLUMNAS]){
+    int fila, columna, contT = 0;
+    for(fila = 0; fila<MAX_FILAS; fila++){
+        for(columna = 0; columna<MAX_COLUMNAS; columna++){
+            if(mapa[fila][columna] == '$'){
+                tesoro[contT].tes_posx = (columna * TAMANO_CELDA) + 20;
+                tesoro[contT].tes_posy = (fila * TAMANO_CELDA) + 20;
+                tesoro[contT].anchoT = 20;
+                tesoro[contT].altoT = 20;
+                contT++;
+            }
+        }
+    }
+    return contT;
 }
 
 int inicializarEnemigosE(char mapa[MAX_FILAS][MAX_COLUMNAS]){
@@ -198,6 +223,15 @@ void leerEnemigoP(int contP){
 	printf("\n");
 }
 
+void leerTesoros(int contT){
+    int i;
+    for(i=0;i<contT;i++){
+        tesoro[i].tes_posx;
+        tesoro[i].tes_posy;
+    }
+    printf("\n");
+}
+
 void Juego(int mapaSeleccionado, ALLEGRO_DISPLAY* displayM) {
     ALLEGRO_EVENT_QUEUE* eventQueue = NULL;
     ALLEGRO_TIMER* timer = NULL;
@@ -206,6 +240,8 @@ void Juego(int mapaSeleccionado, ALLEGRO_DISPLAY* displayM) {
     ALLEGRO_BITMAP* sprite_tesoro = NULL;
     ALLEGRO_BITMAP* sprite_trampa = NULL;
     ALLEGRO_BITMAP* sprite_trampa2 = NULL;
+    ALLEGRO_BITMAP* sprite_trampa3 = NULL;
+    ALLEGRO_BITMAP* sprite_trampa4 = NULL;
     ALLEGRO_BITMAP* sprite_enemigo = NULL;
     ALLEGRO_BITMAP* frames_enemigo[4];
 
@@ -215,6 +251,7 @@ void Juego(int mapaSeleccionado, ALLEGRO_DISPLAY* displayM) {
     int contV = 0;
     int contP = 0;
     int contC = 0;
+    int contT = 0;
 
     Enemigo enemigo;
     enemigo.ene_posx = 90;
@@ -253,6 +290,8 @@ void Juego(int mapaSeleccionado, ALLEGRO_DISPLAY* displayM) {
     sprite_tesoro = al_load_bitmap("sprites/Tesoro1.png");
     sprite_trampa = al_load_bitmap("sprites/trampa1.png");
     sprite_trampa2 = al_load_bitmap("sprites/trampa2.png");
+    sprite_trampa3 = al_load_bitmap("sprites/trampa3.png");
+    sprite_trampa4 = al_load_bitmap("sprites/trampa4.png");    
     sprite_enemigo = al_load_bitmap("sprites/enemigo.png");
 
     int enemigo_ancho_imagen = al_get_bitmap_width(sprite_enemigo);
@@ -270,6 +309,7 @@ void Juego(int mapaSeleccionado, ALLEGRO_DISPLAY* displayM) {
     contV = inicializarEnemigosV(mapa);
     contP = inicializarEnemigosP(mapa);
     contC = inicializarPersonaje(mapa);
+    contT = inicializarTesoros(mapa);
 
     al_start_timer(timer);
 
@@ -311,7 +351,8 @@ void Juego(int mapaSeleccionado, ALLEGRO_DISPLAY* displayM) {
             perseguirPersonaje(personaje, enemigosP, contP);
 			leerEnemigoE(contE);
             leerEnemigoV(contV);
-            leerEnemigoP(contP);            
+            leerEnemigoP(contP);
+            leerTesoros(contT);            
 
             if (colisionConEnemigoE(enemigos, personaje, contE)){
                 personaje.pos_x = 80;
@@ -329,7 +370,7 @@ void Juego(int mapaSeleccionado, ALLEGRO_DISPLAY* displayM) {
             }
 
             al_clear_to_color(al_map_rgb(255, 255, 255));
-            dibujarMapa(mapa, sprite_barrera, sprite_tesoro, sprite_trampa, sprite_trampa2);
+            dibujarMapa(mapa, sprite_barrera, sprite_trampa, sprite_trampa2, sprite_trampa3, sprite_trampa4);
 
             al_draw_bitmap(sprite, personaje.pos_x, personaje.pos_y, 0);
 
@@ -341,6 +382,9 @@ void Juego(int mapaSeleccionado, ALLEGRO_DISPLAY* displayM) {
             }
             for (i=0; i<contP;i++){
                 al_draw_bitmap(frames_enemigo[frame_actual], enemigosP[i].eneP_posx - enemigosP[i].anchoP_enesprite / 2, enemigosP[i].eneP_posy - enemigosP[i].altoP_enesprite / 2, 0);
+            }
+            for (i=0;i<contT;i++){
+                al_draw_bitmap(sprite_tesoro, tesoro[i].tes_posx - tesoro[i].anchoT, tesoro[i].tes_posy - tesoro[i].altoT, 0);
             }
 
             dibujarPuntaje(puntaje);
@@ -455,7 +499,7 @@ void MenuPrinc(ALLEGRO_DISPLAY* displayM, ALLEGRO_EVENT_QUEUE* eventqueue2, int*
     al_destroy_font(fuente);
 }
 
-void dibujarMapa(char mapa[MAX_FILAS][MAX_COLUMNAS], ALLEGRO_BITMAP* sprite_barrera, ALLEGRO_BITMAP* sprite_tesoro, ALLEGRO_BITMAP* sprite_trampa, ALLEGRO_BITMAP* sprite_trampa2) {
+void dibujarMapa(char mapa[MAX_FILAS][MAX_COLUMNAS], ALLEGRO_BITMAP* sprite_barrera, ALLEGRO_BITMAP* sprite_trampa, ALLEGRO_BITMAP* sprite_trampa2, ALLEGRO_BITMAP* sprite_trampa3, ALLEGRO_BITMAP* sprite_trampa4) {
     int fila, columna, x, y;
     char c;
     for (fila = 0; fila < MAX_FILAS; fila++) {
@@ -465,13 +509,16 @@ void dibujarMapa(char mapa[MAX_FILAS][MAX_COLUMNAS], ALLEGRO_BITMAP* sprite_barr
             y = fila * TAMANO_CELDA;
             if (c == '#') {
                 al_draw_bitmap(sprite_barrera, x, y, 0);
-            } else if (c == '$') {
-                al_draw_bitmap(sprite_tesoro, x, y, 0);
-            }
-            if (c == 'd') {
+            } else if (c == 'd') {
                 al_draw_bitmap(sprite_trampa, x, y, 0);
-            } else if (c == 'a') {
+            }
+            if (c == 'a') {
                 al_draw_bitmap(sprite_trampa2, x, y, 0);
+            } else if (c == 'l') {
+                al_draw_bitmap(sprite_trampa3, x, y, 0);
+            }
+            if(c == 'b'){
+                al_draw_bitmap(sprite_trampa4, x, y, 0);
             }
         }
     }
@@ -504,7 +551,7 @@ bool colisionTrampa(char mapa[MAX_FILAS][MAX_COLUMNAS], Personaje personaje) {
 
     for (fila = inicio_y; fila <= fin_y; fila++) {
         for (columna = inicio_x; columna <= fin_x; columna++) {
-            if (mapa[fila][columna] == 'd' || mapa[fila][columna] == 'a') {
+            if (mapa[fila][columna] == 'd' || mapa[fila][columna] == 'a' || mapa[fila][columna] == 'b' || mapa[fila][columna] == 'l') {
                 return true;
             }
         }
