@@ -12,7 +12,7 @@
 #define TAMANO_CELDA 30
 #define ANCHO_VENTANA 1260
 #define ALTO_VENTANA 900
-#define ajuste_ene -20
+
 
 
 typedef struct {
@@ -20,6 +20,9 @@ typedef struct {
     int pos_y;
     int ancho_sprite;
     int alto_sprite;
+    int corazones;
+    int spawnX;
+    int spawnY;
 } Personaje;
 
 typedef struct {
@@ -52,9 +55,11 @@ typedef struct {
     int tes_posy;
     int anchoT;
     int altoT;
+    ALLEGRO_BITMAP* sprite;
+    int recogido;
 } Tesoros;
 
-void MenuPrinc(ALLEGRO_DISPLAY* displayM, ALLEGRO_EVENT_QUEUE* eventqueue2, int* mapaSeleccionado, char mapa[MAX_FILAS][MAX_COLUMNAS]);
+void MenuPrinc(ALLEGRO_BITMAP* fondoMenu, ALLEGRO_DISPLAY* displayM, ALLEGRO_EVENT_QUEUE* eventqueue2, int* mapaSeleccionado, char mapa[MAX_FILAS][MAX_COLUMNAS]);
 void Juego(int mapaSeleccionado, ALLEGRO_DISPLAY* displayM);
 void seleccionarMapa(int mapaSeleccionado, char mapa[MAX_FILAS][MAX_COLUMNAS]);
 void dibujarMapa(char mapa[MAX_FILAS][MAX_COLUMNAS], ALLEGRO_BITMAP* sprite_barrera, ALLEGRO_BITMAP* sprite_trampa, ALLEGRO_BITMAP* sprite_trampa2, ALLEGRO_BITMAP* sprite_trampa3, ALLEGRO_BITMAP* sprite_trampa4);
@@ -67,13 +72,15 @@ void moverEnemigoP(char mapa[MAX_FILAS][MAX_COLUMNAS], EnemigoP enemigosP[], Per
 bool colisionConEnemigoE(Enemigo enemigos[], Personaje personaje, int contE);
 bool colisionConEnemigoV(EnemigoV enemigosV[], Personaje personaje, int contV);
 bool colisionConEnemigoP(EnemigoP enemigosP[], Personaje personaje, int contP);
+bool colisionconTesoro(Tesoros tesoro[], Personaje personaje, int contT);
 void actualizarPuntaje(char mapa[MAX_FILAS][MAX_COLUMNAS], Personaje personaje, int* puntaje);
 void dibujarPuntaje(int puntaje);
 int inicializarPersonaje(char mapa[MAX_FILAS][MAX_COLUMNAS]);
 int inicializarEnemigosE(char mapa[MAX_FILAS][MAX_COLUMNAS]);
 int inicializarEnemigosV(char mapa[MAX_FILAS][MAX_COLUMNAS]);
 int inicializarEnemigosP(char mapa[MAX_FILAS][MAX_COLUMNAS]);
-int inicializarTesoros(char mapa[MAX_FILAS][MAX_COLUMNAS]);
+int inicializarTesoros(char mapa[MAX_FILAS][MAX_COLUMNAS], ALLEGRO_BITMAP* sprite_tesoro);
+void renderTesoros(Tesoros tesoro[], Personaje personaje, int* contT, ALLEGRO_BITMAP* sprite_tesoro);
 void leerEnemigoE(int contE);
 void leerEnemigoV(int contV);
 void leerEnemigoP(int contP);
@@ -91,6 +98,9 @@ int main() {
     al_init_primitives_addon();
     al_install_keyboard();
     al_init_image_addon();
+    int cerrarVent = 0;
+    ALLEGRO_BITMAP* fondoMenu = NULL;
+    fondoMenu = al_load_bitmap("sprites/fondoMenu.png");
     ALLEGRO_DISPLAY* displayM = al_create_display(ANCHO_VENTANA, ALTO_VENTANA);
     ALLEGRO_EVENT_QUEUE* eventQueue2 = al_create_event_queue();
     al_register_event_source(eventQueue2, al_get_display_event_source(displayM));
@@ -98,8 +108,8 @@ int main() {
     char mapa[MAX_FILAS][MAX_COLUMNAS];
     int mapaSeleccionado = 1;
     
-    MenuPrinc(displayM, eventQueue2, &mapaSeleccionado, mapa);
-    
+    MenuPrinc(fondoMenu, displayM, eventQueue2, &mapaSeleccionado, mapa);
+
     al_destroy_event_queue(eventQueue2);
     
     if (mapaSeleccionado > 0) {
@@ -120,6 +130,9 @@ int inicializarPersonaje(char mapa[MAX_FILAS][MAX_COLUMNAS]){
                 personaje.pos_y = fila * TAMANO_CELDA;
                 personaje.ancho_sprite = 13;
                 personaje.alto_sprite = 21;
+                personaje.corazones = 260;
+                personaje.spawnX = columna * TAMANO_CELDA;
+                personaje.spawnY = fila * TAMANO_CELDA;
                 contC++;                    
             }
               
@@ -128,7 +141,7 @@ int inicializarPersonaje(char mapa[MAX_FILAS][MAX_COLUMNAS]){
     return contC;    
 }
 
-int inicializarTesoros(char mapa[MAX_FILAS][MAX_COLUMNAS]){
+int inicializarTesoros(char mapa[MAX_FILAS][MAX_COLUMNAS], ALLEGRO_BITMAP* sprite_tesoro){
     int fila, columna, contT = 0;
     for(fila = 0; fila<MAX_FILAS; fila++){
         for(columna = 0; columna<MAX_COLUMNAS; columna++){
@@ -137,6 +150,8 @@ int inicializarTesoros(char mapa[MAX_FILAS][MAX_COLUMNAS]){
                 tesoro[contT].tes_posy = (fila * TAMANO_CELDA) + 20;
                 tesoro[contT].anchoT = 20;
                 tesoro[contT].altoT = 20;
+                tesoro[contT].sprite = sprite_tesoro;
+                tesoro[contT].recogido = 0;
                 contT++;
             }
         }
@@ -243,6 +258,8 @@ void Juego(int mapaSeleccionado, ALLEGRO_DISPLAY* displayM) {
     ALLEGRO_BITMAP* sprite_trampa3 = NULL;
     ALLEGRO_BITMAP* sprite_trampa4 = NULL;
     ALLEGRO_BITMAP* sprite_enemigo = NULL;
+    ALLEGRO_BITMAP* corazon_lleno = NULL;
+    ALLEGRO_BITMAP* corazon_vacio = NULL;
     ALLEGRO_BITMAP* frames_enemigo[4];
 
     int i, fila, puntaje = 0;
@@ -252,26 +269,15 @@ void Juego(int mapaSeleccionado, ALLEGRO_DISPLAY* displayM) {
     int contP = 0;
     int contC = 0;
     int contT = 0;
+    int cora_x1 = 1000;  
+    int cora_x2 = 1030;  
+    int cora_x3 = 1060;  
+    int cora_x4 = 1090;
+    int y_corazones = 0;
 
     Enemigo enemigo;
-    enemigo.ene_posx = 90;
-    enemigo.ene_posy = 390;
-
     EnemigoV enemigoV;
-    enemigoV.eneV_posx = 1020;
-    enemigoV.eneV_posy = 330;
-    enemigoV.anchoV_enesprite = 21;
-    enemigoV.altoV_enesprite = 24;
-    enemigoV.desplazamientoV = -1;
-
     EnemigoP enemigoP;
-    enemigoP.eneP_posx = 750;
-    enemigoP.eneP_posy = 120;
-    enemigoP.anchoP_enesprite = 30;
-    enemigoP.altoP_enesprite = 30;
-    enemigoP.desplazamientoP = 2;
-    enemigoP.persigue = false;
-
 
     eventQueue = al_create_event_queue();
     timer = al_create_timer(1.0 / 60);
@@ -285,6 +291,7 @@ void Juego(int mapaSeleccionado, ALLEGRO_DISPLAY* displayM) {
     char mapa[MAX_FILAS][MAX_COLUMNAS];
     seleccionarMapa(mapaSeleccionado, mapa);
     
+    
     sprite = al_load_bitmap("sprites/Man.png");
     sprite_barrera = al_load_bitmap("sprites/barrera.png");
     sprite_tesoro = al_load_bitmap("sprites/Tesoro1.png");
@@ -293,13 +300,11 @@ void Juego(int mapaSeleccionado, ALLEGRO_DISPLAY* displayM) {
     sprite_trampa3 = al_load_bitmap("sprites/trampa3.png");
     sprite_trampa4 = al_load_bitmap("sprites/trampa4.png");    
     sprite_enemigo = al_load_bitmap("sprites/enemigo.png");
+    corazon_lleno = al_load_bitmap("sprites/corazonlleno.png");
+    corazon_vacio = al_load_bitmap("sprites/corazonvacio.png");
 
     int enemigo_ancho_imagen = al_get_bitmap_width(sprite_enemigo);
     int enemigo_alto_imagen = al_get_bitmap_height(sprite_enemigo);
-
-    enemigo.ancho_enesprite = 15;
-    enemigo.alto_enesprite = 24;
-    enemigo.desplazamiento = -1;
 
     for (i = 0; i < 4; i++) {
         frames_enemigo[i] = al_create_sub_bitmap(sprite_enemigo, i * (enemigo_ancho_imagen / 4), 0, enemigo_ancho_imagen / 4, enemigo_alto_imagen);
@@ -309,7 +314,7 @@ void Juego(int mapaSeleccionado, ALLEGRO_DISPLAY* displayM) {
     contV = inicializarEnemigosV(mapa);
     contP = inicializarEnemigosP(mapa);
     contC = inicializarPersonaje(mapa);
-    contT = inicializarTesoros(mapa);
+    contT = inicializarTesoros(mapa, sprite_tesoro);
 
     al_start_timer(timer);
 
@@ -355,24 +360,22 @@ void Juego(int mapaSeleccionado, ALLEGRO_DISPLAY* displayM) {
             leerTesoros(contT);            
 
             if (colisionConEnemigoE(enemigos, personaje, contE)){
-                personaje.pos_x = 80;
-                personaje.pos_y = 40;
+                personaje.corazones--;
             }
 
             if (colisionConEnemigoV(enemigosV, personaje, contV)){
-                personaje.pos_x = 80;
-                personaje.pos_y = 40;                
+                personaje.corazones--;
             }  
 
             if (colisionConEnemigoP(enemigosP, personaje, contP)) {
-                personaje.pos_x = 80;
-                personaje.pos_y = 40;
+                personaje.corazones --;
             }
 
             al_clear_to_color(al_map_rgb(255, 255, 255));
             dibujarMapa(mapa, sprite_barrera, sprite_trampa, sprite_trampa2, sprite_trampa3, sprite_trampa4);
 
             al_draw_bitmap(sprite, personaje.pos_x, personaje.pos_y, 0);
+            renderTesoros(tesoro, personaje, &contT, sprite_tesoro);
 
             for (i=0; i<contE;i++){
                 al_draw_bitmap(frames_enemigo[frame_actual], enemigos[i].ene_posx - enemigos[i].ancho_enesprite / 2, enemigos[i].ene_posy - enemigos[i].alto_enesprite, 0);
@@ -383,8 +386,40 @@ void Juego(int mapaSeleccionado, ALLEGRO_DISPLAY* displayM) {
             for (i=0; i<contP;i++){
                 al_draw_bitmap(frames_enemigo[frame_actual], enemigosP[i].eneP_posx - enemigosP[i].anchoP_enesprite / 2, enemigosP[i].eneP_posy - enemigosP[i].altoP_enesprite / 2, 0);
             }
-            for (i=0;i<contT;i++){
-                al_draw_bitmap(sprite_tesoro, tesoro[i].tes_posx - tesoro[i].anchoT, tesoro[i].tes_posy - tesoro[i].altoT, 0);
+
+            if (colisionconTesoro(tesoro, personaje, contT)){
+                tesoro[i] = tesoro[contT - 1];
+                contT--;
+            }
+            printf("%d", personaje.corazones);
+
+            if (personaje.corazones > 195 && personaje.corazones <= 260) {
+                al_draw_bitmap(corazon_lleno, cora_x1, y_corazones, 0);
+                al_draw_bitmap(corazon_lleno, cora_x2, y_corazones, 0);
+                al_draw_bitmap(corazon_lleno, cora_x3, y_corazones, 0);
+                al_draw_bitmap(corazon_lleno, cora_x4, y_corazones, 0);
+            } else if (personaje.corazones > 130 && personaje.corazones <= 195) {
+                al_draw_bitmap(corazon_lleno, cora_x1, y_corazones, 0);
+                al_draw_bitmap(corazon_lleno, cora_x2, y_corazones, 0);
+                al_draw_bitmap(corazon_lleno, cora_x3, y_corazones, 0);
+                al_draw_bitmap(corazon_vacio, cora_x4, y_corazones, 0);
+            } else if (personaje.corazones > 65 && personaje.corazones <= 130) {
+                al_draw_bitmap(corazon_lleno, cora_x1, y_corazones, 0);
+                al_draw_bitmap(corazon_lleno, cora_x2, y_corazones, 0);
+                al_draw_bitmap(corazon_vacio, cora_x3, y_corazones, 0);
+                al_draw_bitmap(corazon_vacio, cora_x4, y_corazones, 0);
+            } else if(personaje.corazones > 0 && personaje.corazones <= 65) { 
+                al_draw_bitmap(corazon_lleno, cora_x1, y_corazones, 0);
+                al_draw_bitmap(corazon_vacio, cora_x2, y_corazones, 0);
+                al_draw_bitmap(corazon_vacio, cora_x3, y_corazones, 0);
+                al_draw_bitmap(corazon_vacio, cora_x4, y_corazones, 0);
+            } if (personaje.corazones == 0){
+                al_draw_bitmap(corazon_vacio, cora_x1, y_corazones, 0);
+                al_draw_bitmap(corazon_vacio, cora_x2, y_corazones, 0);
+                al_draw_bitmap(corazon_vacio, cora_x3, y_corazones, 0);  
+                al_draw_bitmap(corazon_vacio, cora_x4, y_corazones, 0);
+                personaje.pos_x = personaje.spawnX;
+                personaje.pos_y = personaje.spawnY;               
             }
 
             dibujarPuntaje(puntaje);
@@ -405,13 +440,17 @@ void Juego(int mapaSeleccionado, ALLEGRO_DISPLAY* displayM) {
     al_destroy_bitmap(sprite_tesoro);
     al_destroy_bitmap(sprite_trampa);
     al_destroy_bitmap(sprite_trampa2);
+    al_destroy_bitmap(sprite_trampa3);
+    al_destroy_bitmap(sprite_trampa4);
+    al_destroy_bitmap(corazon_lleno);
+    al_destroy_bitmap(corazon_vacio);    
     al_destroy_display(displayM);
     al_destroy_event_queue(eventQueue);
     al_destroy_timer(timer);
 
 }
 
-void MenuPrinc(ALLEGRO_DISPLAY* displayM, ALLEGRO_EVENT_QUEUE* eventqueue2, int* mapaSeleccionado, char mapa[MAX_FILAS][MAX_COLUMNAS]) {
+void MenuPrinc(ALLEGRO_BITMAP* fondoMenu, ALLEGRO_DISPLAY* displayM, ALLEGRO_EVENT_QUEUE* eventqueue2, int* mapaSeleccionado, char mapa[MAX_FILAS][MAX_COLUMNAS]) {
     ALLEGRO_FONT* fuente = al_create_builtin_font();
     ALLEGRO_COLOR textColor = al_map_rgb(255, 255, 255);
     int opcion = 0;
@@ -426,9 +465,9 @@ void MenuPrinc(ALLEGRO_DISPLAY* displayM, ALLEGRO_EVENT_QUEUE* eventqueue2, int*
     while (!salirMenu) {
         ALLEGRO_EVENT event;
         al_wait_for_event(eventqueue2, &event);
-
         if (event.type == ALLEGRO_EVENT_DISPLAY_CLOSE) {
             salirMenu = true;
+            exit(0);
             break;
         }
 
@@ -469,6 +508,7 @@ void MenuPrinc(ALLEGRO_DISPLAY* displayM, ALLEGRO_EVENT_QUEUE* eventqueue2, int*
 
         al_clear_to_color(al_map_rgb(0, 0, 0));
 
+        al_draw_bitmap(fondoMenu, 0, 0, 0);
         al_draw_text(fuente, textColor, ANCHO_VENTANA / 2, ALTO_VENTANA / 3 - 40, ALLEGRO_ALIGN_CENTER, "Menu Principal");
 
         for (int i = 0; i < totalOpciones; i++) {
@@ -497,6 +537,7 @@ void MenuPrinc(ALLEGRO_DISPLAY* displayM, ALLEGRO_EVENT_QUEUE* eventqueue2, int*
     }
 
     al_destroy_font(fuente);
+    al_destroy_bitmap(fondoMenu);
 }
 
 void dibujarMapa(char mapa[MAX_FILAS][MAX_COLUMNAS], ALLEGRO_BITMAP* sprite_barrera, ALLEGRO_BITMAP* sprite_trampa, ALLEGRO_BITMAP* sprite_trampa2, ALLEGRO_BITMAP* sprite_trampa3, ALLEGRO_BITMAP* sprite_trampa4) {
@@ -520,6 +561,22 @@ void dibujarMapa(char mapa[MAX_FILAS][MAX_COLUMNAS], ALLEGRO_BITMAP* sprite_barr
             if(c == 'b'){
                 al_draw_bitmap(sprite_trampa4, x, y, 0);
             }
+        }
+    }
+}
+
+void renderTesoros(Tesoros tesoro[], Personaje personaje, int* contT, ALLEGRO_BITMAP* sprite_tesoro) {
+    int i;
+    for (i = 0; i < *contT; i++) {
+        int distancia_x = personaje.pos_x - tesoro[i].tes_posx;
+        int distancia_y = personaje.pos_y - tesoro[i].tes_posy;
+
+        int distancia_cuadrada = distancia_x * distancia_x + distancia_y * distancia_y;
+
+        int distancia_radio = 25000;
+
+        if (distancia_cuadrada < distancia_radio) {
+            al_draw_bitmap(sprite_tesoro, tesoro[i].tes_posx - tesoro[i].anchoT, tesoro[i].tes_posy - tesoro[i].altoT, 0);
         }
     }
 }
@@ -612,20 +669,6 @@ void moverEnemigoV(char mapa[MAX_FILAS][MAX_COLUMNAS], EnemigoV enemigosV[], int
     }
 }
 
-void perseguirPersonaje(Personaje personaje, EnemigoP enemigosP[], int contP) {
-    int i;
-    for (i = 0; i<contP;i++){
-        int distancia_x = personaje.pos_x - enemigosP[i].eneP_posx;
-        int distancia_y = personaje.pos_y - enemigosP[i].eneP_posy;
-
-        int distancia_cuadrada = distancia_x * distancia_x + distancia_y * distancia_y;
-
-        int distancia_radio = 50000; 
-        enemigosP[i].persigue = (distancia_cuadrada < distancia_radio);   
-    }
-
-}
-
 void moverEnemigoP(char mapa[MAX_FILAS][MAX_COLUMNAS], EnemigoP enemigosP[], Personaje personaje, int contP) {
     int i;
     for (i=0; i<contP;i++){
@@ -686,6 +729,46 @@ void moverEnemigoP(char mapa[MAX_FILAS][MAX_COLUMNAS], EnemigoP enemigosP[], Per
             }
         }
     }    
+}
+
+void perseguirPersonaje(Personaje personaje, EnemigoP enemigosP[], int contP) {
+    int i;
+    for (i = 0; i<contP;i++){
+        int distancia_x = personaje.pos_x - enemigosP[i].eneP_posx;
+        int distancia_y = personaje.pos_y - enemigosP[i].eneP_posy;
+
+        int distancia_cuadrada = distancia_x * distancia_x + distancia_y * distancia_y;
+
+        int distancia_radio = 20000; 
+        enemigosP[i].persigue = (distancia_cuadrada < distancia_radio);   
+    }
+
+}
+
+bool colisionconTesoro(Tesoros tesoro[], Personaje personaje, int contT) {
+    int i;
+    for (i = 0; i < contT; i++) {
+        int distancia_x = personaje.pos_x - tesoro[i].tes_posx;
+        int distancia_y = personaje.pos_y - tesoro[i].tes_posy;
+
+        int distancia_cuadrada = distancia_x * distancia_x + distancia_y * distancia_y;
+
+        int distancia_radio = 500;
+
+        if (distancia_cuadrada < distancia_radio) {
+            tesoro[i] = tesoro[contT - 1];
+            contT--;
+
+            for (int j = i; j < contT; j++) {
+                tesoro[j].tes_posx = tesoro[j + 1].tes_posx;
+                tesoro[j].tes_posy = tesoro[j + 1].tes_posy;
+            }
+
+            return true;
+        }
+    }
+
+    return false;
 }
 
 bool colisionConEnemigoE(Enemigo enemigos[], Personaje personaje, int contE) {
