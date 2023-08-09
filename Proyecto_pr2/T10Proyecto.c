@@ -62,9 +62,11 @@ typedef struct {
 void MenuPrinc(ALLEGRO_BITMAP* fondoMenu, ALLEGRO_DISPLAY* displayM, ALLEGRO_EVENT_QUEUE* eventqueue2, int* mapaSeleccionado, char mapa[MAX_FILAS][MAX_COLUMNAS]);
 void Juego(int mapaSeleccionado, ALLEGRO_DISPLAY* displayM);
 void seleccionarMapa(int mapaSeleccionado, char mapa[MAX_FILAS][MAX_COLUMNAS]);
-void dibujarMapa(char mapa[MAX_FILAS][MAX_COLUMNAS], ALLEGRO_BITMAP* sprite_barrera, ALLEGRO_BITMAP* sprite_trampa, ALLEGRO_BITMAP* sprite_trampa2, ALLEGRO_BITMAP* sprite_trampa3, ALLEGRO_BITMAP* sprite_trampa4);
+void dibujarMapa(char mapa[MAX_FILAS][MAX_COLUMNAS], ALLEGRO_BITMAP* sprite_barrera, ALLEGRO_BITMAP* sprite_trampa, ALLEGRO_BITMAP* sprite_trampa2, ALLEGRO_BITMAP* sprite_trampa3, ALLEGRO_BITMAP* sprite_trampa4, ALLEGRO_BITMAP* sprite_llave);
 bool colisionBarrera(char mapa[MAX_FILAS][MAX_COLUMNAS], int pos_x, int pos_y, int ancho_sprite, int alto_sprite);
 bool colisionTrampa(char mapa[MAX_FILAS][MAX_COLUMNAS], Personaje personaje);
+bool colisionConLlave(char mapa[MAX_FILAS][MAX_COLUMNAS], Personaje personaje);
+bool colisionPuertaB(char mapa[MAX_FILAS][MAX_COLUMNAS], int pos_x, int pos_y, int ancho_sprite, int alto_sprite);
 void moverEnemigo(char mapa[MAX_FILAS][MAX_COLUMNAS], Enemigo enemigos[], int contE);
 void moverEnemigoV(char mapa[MAX_FILAS][MAX_COLUMNAS], EnemigoV enemigosV[], int contV);
 void perseguirPersonaje(Personaje personaje, EnemigoP enemigosP[], int contP);
@@ -92,13 +94,15 @@ EnemigoP enemigosP[10];
 Personaje personaje;
 Tesoros tesoro[10];
 
+int puertaPosx, puertaPosy;
+bool puertaBloqueada = true;
+
 int main() {
     al_init();
     al_init_font_addon();
     al_init_primitives_addon();
     al_install_keyboard();
     al_init_image_addon();
-    int cerrarVent = 0;
     ALLEGRO_BITMAP* fondoMenu = NULL;
     fondoMenu = al_load_bitmap("sprites/fondoMenu.png");
     ALLEGRO_DISPLAY* displayM = al_create_display(ANCHO_VENTANA, ALTO_VENTANA);
@@ -115,7 +119,7 @@ int main() {
     if (mapaSeleccionado > 0) {
         Juego(mapaSeleccionado, displayM);
     }
-    
+
     al_destroy_display(displayM);
 
     return 0;
@@ -258,6 +262,10 @@ void Juego(int mapaSeleccionado, ALLEGRO_DISPLAY* displayM) {
     ALLEGRO_BITMAP* sprite_trampa3 = NULL;
     ALLEGRO_BITMAP* sprite_trampa4 = NULL;
     ALLEGRO_BITMAP* sprite_enemigo = NULL;
+    ALLEGRO_BITMAP* sprite_llave = NULL;
+    ALLEGRO_BITMAP* sprite_llaveRecogida = NULL;
+    ALLEGRO_BITMAP* sprite_puertaL = NULL;
+    ALLEGRO_BITMAP* sprite_puertaU = NULL;    
     ALLEGRO_BITMAP* corazon_lleno = NULL;
     ALLEGRO_BITMAP* corazon_vacio = NULL;
     ALLEGRO_BITMAP* frames_enemigo[4];
@@ -286,7 +294,9 @@ void Juego(int mapaSeleccionado, ALLEGRO_DISPLAY* displayM) {
     al_register_event_source(eventQueue, al_get_keyboard_event_source());
     al_register_event_source(eventQueue, al_get_timer_event_source(timer));
     ALLEGRO_KEYBOARD_STATE keyboardState;
+
     bool salir = false;
+    bool llaveRecogida = false;
 
     char mapa[MAX_FILAS][MAX_COLUMNAS];
     seleccionarMapa(mapaSeleccionado, mapa);
@@ -300,6 +310,10 @@ void Juego(int mapaSeleccionado, ALLEGRO_DISPLAY* displayM) {
     sprite_trampa3 = al_load_bitmap("sprites/trampa3.png");
     sprite_trampa4 = al_load_bitmap("sprites/trampa4.png");    
     sprite_enemigo = al_load_bitmap("sprites/enemigo.png");
+    sprite_llave = al_load_bitmap("sprites/llave.png");
+    sprite_llaveRecogida = al_load_bitmap("sprites/llaveReco.png");
+    sprite_puertaL = al_load_bitmap("sprites/puertaL.png");
+    sprite_puertaU = al_load_bitmap("sprites/puertaU.png");    
     corazon_lleno = al_load_bitmap("sprites/corazonlleno.png");
     corazon_vacio = al_load_bitmap("sprites/corazonvacio.png");
 
@@ -327,27 +341,28 @@ void Juego(int mapaSeleccionado, ALLEGRO_DISPLAY* displayM) {
             al_get_keyboard_state(&keyboardState);
 
             if (al_key_down(&keyboardState, ALLEGRO_KEY_UP)) {
-                if (personaje.pos_y > 0 && !colisionBarrera(mapa, personaje.pos_x, personaje.pos_y - TAMANO_CELDA / 8, personaje.ancho_sprite, personaje.alto_sprite)) {
+                if (personaje.pos_y > 0 && !colisionBarrera(mapa, personaje.pos_x, personaje.pos_y - TAMANO_CELDA / 8, personaje.ancho_sprite, personaje.alto_sprite) && !colisionPuertaB(mapa, personaje.pos_x, personaje.pos_y - TAMANO_CELDA / 8, personaje.ancho_sprite, personaje.alto_sprite)) {
                     personaje.pos_y -= TAMANO_CELDA / 8;
                 }
             } else if (al_key_down(&keyboardState, ALLEGRO_KEY_DOWN)) {
-                if (personaje.pos_y < (MAX_FILAS - 1) * TAMANO_CELDA - personaje.alto_sprite && !colisionBarrera(mapa, personaje.pos_x, personaje.pos_y + TAMANO_CELDA / 8, personaje.ancho_sprite, personaje.alto_sprite)) {
+                if (personaje.pos_y < (MAX_FILAS - 1) * TAMANO_CELDA - personaje.alto_sprite && !colisionBarrera(mapa, personaje.pos_x, personaje.pos_y + TAMANO_CELDA / 8, personaje.ancho_sprite, personaje.alto_sprite) && !colisionPuertaB(mapa, personaje.pos_x, personaje.pos_y + TAMANO_CELDA / 8, personaje.ancho_sprite, personaje.alto_sprite)) {
                     personaje.pos_y += TAMANO_CELDA / 8;
                 }
             } else if (al_key_down(&keyboardState, ALLEGRO_KEY_LEFT)) {
-                if (personaje.pos_x > 0 && !colisionBarrera(mapa, personaje.pos_x - TAMANO_CELDA / 8, personaje.pos_y, personaje.ancho_sprite, personaje.alto_sprite)) {
+                if (personaje.pos_x > 0 && !colisionBarrera(mapa, personaje.pos_x - TAMANO_CELDA / 8, personaje.pos_y, personaje.ancho_sprite, personaje.alto_sprite) && !colisionPuertaB(mapa, personaje.pos_x - TAMANO_CELDA / 8, personaje.pos_y, personaje.ancho_sprite, personaje.alto_sprite)) {
                     personaje.pos_x -= TAMANO_CELDA / 8;
                 }
             } else if (al_key_down(&keyboardState, ALLEGRO_KEY_RIGHT)) {
-                if (personaje.pos_x < (MAX_COLUMNAS - 1) * TAMANO_CELDA - personaje.ancho_sprite && !colisionBarrera(mapa, personaje.pos_x + TAMANO_CELDA / 8, personaje.pos_y, personaje.ancho_sprite, personaje.alto_sprite)) {
+                if (personaje.pos_x < (MAX_COLUMNAS - 1) * TAMANO_CELDA - personaje.ancho_sprite && !colisionBarrera(mapa, personaje.pos_x + TAMANO_CELDA / 8, personaje.pos_y, personaje.ancho_sprite, personaje.alto_sprite) && !colisionPuertaB(mapa, personaje.pos_x + TAMANO_CELDA / 8, personaje.pos_y, personaje.ancho_sprite, personaje.alto_sprite)) {
                     personaje.pos_x += TAMANO_CELDA / 8;
                 }
             }
 
             if (colisionTrampa(mapa, personaje)) {
-                personaje.pos_x = 80;
-                personaje.pos_y = 40;
+                personaje.pos_x = personaje.spawnX;
+                personaje.pos_y = personaje.spawnY;
             }
+
             frame_actual = (frame_actual + 1) % 4;
 
             moverEnemigo(mapa, enemigos, contE);
@@ -371,10 +386,10 @@ void Juego(int mapaSeleccionado, ALLEGRO_DISPLAY* displayM) {
                 personaje.corazones --;
             }
 
-            al_clear_to_color(al_map_rgb(255, 255, 255));
-            dibujarMapa(mapa, sprite_barrera, sprite_trampa, sprite_trampa2, sprite_trampa3, sprite_trampa4);
+            al_clear_to_color(al_map_rgb(0, 0, 0));
+            dibujarMapa(mapa, sprite_barrera, sprite_trampa, sprite_trampa2, sprite_trampa3, sprite_trampa4, sprite_llave);
 
-            al_draw_bitmap(sprite, personaje.pos_x, personaje.pos_y, 0);
+            
             renderTesoros(tesoro, personaje, &contT, sprite_tesoro);
 
             for (i=0; i<contE;i++){
@@ -391,6 +406,19 @@ void Juego(int mapaSeleccionado, ALLEGRO_DISPLAY* displayM) {
                 tesoro[i] = tesoro[contT - 1];
                 contT--;
             }
+
+            if (colisionConLlave(mapa, personaje) && !llaveRecogida){
+                llaveRecogida = true;
+            }
+            if (llaveRecogida){
+                al_draw_bitmap(sprite_llaveRecogida, 960, 5, 0);
+                al_draw_bitmap(sprite_puertaU, puertaPosx, puertaPosy, 0);
+                puertaBloqueada = false;
+            } else {
+                al_draw_bitmap(sprite_puertaL, puertaPosx, puertaPosy, 0);
+                puertaBloqueada = true;
+            }
+            al_draw_bitmap(sprite, personaje.pos_x, personaje.pos_y, 0);            
             printf("%d", personaje.corazones);
 
             if (personaje.corazones > 195 && personaje.corazones <= 260) {
@@ -442,6 +470,10 @@ void Juego(int mapaSeleccionado, ALLEGRO_DISPLAY* displayM) {
     al_destroy_bitmap(sprite_trampa2);
     al_destroy_bitmap(sprite_trampa3);
     al_destroy_bitmap(sprite_trampa4);
+    al_destroy_bitmap(sprite_llave);
+    al_destroy_bitmap(sprite_llaveRecogida);
+    al_destroy_bitmap(sprite_puertaU);
+    al_destroy_bitmap(sprite_puertaL);
     al_destroy_bitmap(corazon_lleno);
     al_destroy_bitmap(corazon_vacio);    
     al_destroy_display(displayM);
@@ -521,7 +553,7 @@ void MenuPrinc(ALLEGRO_BITMAP* fondoMenu, ALLEGRO_DISPLAY* displayM, ALLEGRO_EVE
         }
 
         if (seleccionandoMapa) {
-            al_clear_to_color(al_map_rgb(0, 0, 0));
+            al_draw_bitmap(fondoMenu, 0, 0, 0);
             al_draw_text(fuente, textColor, ANCHO_VENTANA / 2, ALTO_VENTANA / 2 - 40, ALLEGRO_ALIGN_CENTER, "Selecciona un mapa:");
             for (int i = 0; i < totalOpciones; i++) {
                 int posY = ALTO_VENTANA / 2 + (i + 1) * 40;
@@ -540,7 +572,7 @@ void MenuPrinc(ALLEGRO_BITMAP* fondoMenu, ALLEGRO_DISPLAY* displayM, ALLEGRO_EVE
     al_destroy_bitmap(fondoMenu);
 }
 
-void dibujarMapa(char mapa[MAX_FILAS][MAX_COLUMNAS], ALLEGRO_BITMAP* sprite_barrera, ALLEGRO_BITMAP* sprite_trampa, ALLEGRO_BITMAP* sprite_trampa2, ALLEGRO_BITMAP* sprite_trampa3, ALLEGRO_BITMAP* sprite_trampa4) {
+void dibujarMapa(char mapa[MAX_FILAS][MAX_COLUMNAS], ALLEGRO_BITMAP* sprite_barrera, ALLEGRO_BITMAP* sprite_trampa, ALLEGRO_BITMAP* sprite_trampa2, ALLEGRO_BITMAP* sprite_trampa3, ALLEGRO_BITMAP* sprite_trampa4, ALLEGRO_BITMAP* sprite_llave) {
     int fila, columna, x, y;
     char c;
     for (fila = 0; fila < MAX_FILAS; fila++) {
@@ -560,6 +592,12 @@ void dibujarMapa(char mapa[MAX_FILAS][MAX_COLUMNAS], ALLEGRO_BITMAP* sprite_barr
             }
             if(c == 'b'){
                 al_draw_bitmap(sprite_trampa4, x, y, 0);
+            } else if (c == 'u'){
+                al_draw_bitmap(sprite_llave, x, y, 0);
+            }
+            if (c == 'p'){
+                puertaPosx = x;
+                puertaPosy = y;
             }
         }
     }
@@ -573,7 +611,7 @@ void renderTesoros(Tesoros tesoro[], Personaje personaje, int* contT, ALLEGRO_BI
 
         int distancia_cuadrada = distancia_x * distancia_x + distancia_y * distancia_y;
 
-        int distancia_radio = 25000;
+        int distancia_radio = 20000;
 
         if (distancia_cuadrada < distancia_radio) {
             al_draw_bitmap(sprite_tesoro, tesoro[i].tes_posx - tesoro[i].anchoT, tesoro[i].tes_posy - tesoro[i].altoT, 0);
@@ -613,6 +651,35 @@ bool colisionTrampa(char mapa[MAX_FILAS][MAX_COLUMNAS], Personaje personaje) {
             }
         }
     }
+    return false;
+}
+
+bool colisionConLlave(char mapa[MAX_FILAS][MAX_COLUMNAS], Personaje personaje){
+    int fila = personaje.pos_y / TAMANO_CELDA;
+    int columna = personaje.pos_x / TAMANO_CELDA;
+
+    if(mapa[fila][columna] == 'u'){
+        mapa[fila][columna] = ' ';
+        return true;
+    }
+    return false;
+}
+
+bool colisionPuertaB(char mapa[MAX_FILAS][MAX_COLUMNAS], int pos_x, int pos_y, int ancho_sprite, int alto_sprite) {
+    int fila, columna;
+    int inicio_x = pos_x / TAMANO_CELDA;
+    int inicio_y = pos_y / TAMANO_CELDA;
+    int fin_x = (pos_x + ancho_sprite - 1) / TAMANO_CELDA;
+    int fin_y = (pos_y + alto_sprite - 1) / TAMANO_CELDA;
+
+    for (fila = inicio_y; fila <= fin_y; fila++) {
+        for (columna = inicio_x; columna <= fin_x; columna++) {
+            if (mapa[fila][columna] == 'p' && puertaBloqueada == true) {
+                return true;
+            }
+        }
+    }
+
     return false;
 }
 
