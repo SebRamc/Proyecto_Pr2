@@ -38,3 +38,5 @@ E = enemigo horizontal
 V = enemigo vertical
 P = enemigo que persigue
 $ = tesoro
+u = llave
+p = puerta
